@@ -1,0 +1,604 @@
+---
+title: <center> classification using R \center
+author: <center> Kornkamon Mathuros \center
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,  include=FALSE}
+library(Stat2Data)
+library(tidyverse)
+library(here)
+library(ggforce)
+library(ggpubr)
+library(latex2exp)
+```
+
+# Section C
+This section will investigate K-nearest neighbor classification which is one of the supervised learning method.
+
+The section will be divided into 5 part as follow:
+
+-  [Overview of K-nearest neighbour]
+-  [Apply K-nearest neighbour classification with the data set]
+-  [Explore the performance of K-nearest neighbour]
+-  [Using k-fold cross validation]
+-  [Summary]
+
+## Overview of K-nearest neighbour
+
+K-nearest neighbour or Knn is a supervised learning that can be used to solve both classification and regression problem. It is a non-parametric technique which means it makes no assumptions about the data set. Hence, it will classify new data points into target classes based on the similarity of input feature vectors and feature vector of the training data.
+
+To make a clear illustration on how the algorithm works for classification problem, let's consider the example as follow: \
+Suppose there are 2 classes from a training data which is class A and class B. There is a new data point that we want to predict whether it belong to class A or B.\
+
+First,the algorithm will consider "K" or the number of nearest training data points to measure the closeness of the data points. It will measure how close of the new data point to the nearest training data by using measures such as Euclidean or Manhattan distance and sort the training data in ascending order. The K training data that has minimum distances will be selected as the nearest neighbors.\
+Then,the algorithm will count the number of data in each category among these k neighbours and match the new data to the category with the highest number of neighbours. \
+
+Suppose we have the training data and the new data point which is black dot and suppose we defined the value of k equal to 5, this mean that the algorithm will consider 5 nearest neighbour of the black dot as shown below.
+```{r, include=FALSE}
+set.seed(12)
+simulation_mean5 <- data.frame( x = rnorm(20,mean = 5, sd = 2), y = rnorm(10,mean = 5, sd = 2), class = "class A")
+ simulation_mean10 <- data.frame(x = rnorm(20,mean = 10, sd = 2), y = rnorm(10,mean = 10, sd = 2), class = "class B")
+simulation_df <- rbind(simulation_mean5,simulation_mean10)
+```
+
+```{r,echo=FALSE, fig.align='center', fig.cap='fig.1 Example of KNN where K equal to 5'}
+ggplot(data = simulation_df, aes(x=x,y=y))+ geom_circle(aes(x0 = 8, y0 = 8, r = 2),fill="light blue",color="blue",size=1, inherit.aes = FALSE) +geom_point(aes(color = class,shape = class), size = 3) + theme_bw() +geom_point(aes(x=8,y=8),colour="black",size=4)
+```
+The algorithm will calculate the closeness of 5 nearest neighbour by using distance measures. After the algorithm calculated the similarity, there are four nearest neighbours in category B and only one nearest neighbour in category A. So, the algorithm will predict that the black-dot must belong to category B. \
+
+
+#### Method for calculating distance
+
+There are various distance measures such as Minkowsky distance and cosine but the most common distance measures are Euclidean distance and Manhattan distance (Boehmke and Greenwell, 2020) which can be computed as follow.
+Suppose we have feature vector $A = (x_{1},...,x_{d})$ and $B = (y_{1},...,y_{d})$ where $d$ is the dimensional of the feature space. 
+
+**Euclidean distance can be computed by**
+$$ d(x,y) = \sqrt{\sum_{i=1}^{d}(x_{i}-y_{i})^{2}} $$
+**Manhattan distance can be computed by**
+$$d(x,y) = {\sum_{i=1}^{d}|x_{i}-y_{i}|}$$
+```{r,echo=FALSE,warning=FALSE,message=FALSE,fig.align='center',out.width='60%',fig.cap= "fig.2 Euclidean distance and Manhattan distance"}
+
+ggplot()+ scale_x_continuous(limits = c(0.5,3.5))+
+  scale_y_continuous(limits = c(0.5,5.5))+ 
+  annotate("segment", x = 1, xend = 3, y = 2, yend = 2,
+           color="grey",size=1.5)+geom_point(aes(x=3,y=5),size=2) +
+  annotate("segment", x = 3, xend = 3, y = 2, yend = 5,
+           color="grey",size=1.5)+geom_point(aes(x=3,y=5),size=2) +
+  theme_bw()+geom_point(aes(x=1,y=2),size=2) +
+  annotate("segment", x = 1, xend = 3, y = 2, yend = 5,
+  colour = "lightblue",size = 1.5)+geom_point(aes(x=3,y=5),size=2) +
+  scale_x_discrete(labels = NULL) + labs(x = "", y="")+scale_y_discrete(labels = NULL)+
+  annotate("text", x = 3.5, y = 3.5, label = TeX("$| \\x_{1} - y_{1}|"), size = 6)+
+  annotate("text", x = 2, y = 1.5, label = TeX("$| \\x_{2} - y_{2}|"), size = 6)+
+  annotate("text", x = 1.3, y = 4, label = TeX("$ \\sqrt{(x_{1} - y_{1})^{2} + (x_{2} - y_{2})^{2}}"), size = 6)
+```
+
+
+K-nearest neighbour classification is suitable for a non-linear classification problem because it is a simple algorithm that classify based on training data. It also perform well on a classification problem with high-dimensional features but the algorithm is not appropriate for large sample size. This is because it will lead to model complexity and will consume huge amount of memory.
+
+
+## Apply K-nearest neighbour classification with the data set
+
+This section will use data [Pokemon with stats](https://www.kaggle.com/abcsds/pokemon?select=Pokemon.csv) (Alberto Barradas. 2016)  to predict that whether or not a pokemon is legendary. (True/False) \
+
+(data set from
+Alberto Barradas (2016). *Pokemon with stats* (Version 2) [Data set]. (Retrieved from https://www.kaggle.com/abcsds/pokemon) \
+
+Beginning by loading the data set.
+
+```{r}
+folder <- here() #Specify folder name by using library here
+file_name <- "Pokemon"
+pokemon_df <- read.csv(paste0(folder,"\\",file_name,".csv")) #read the file
+str(pokemon_df) #display the data structure
+```
+```{r}
+pokemon_df %>% head(5) #display first 5 row of the data set
+```
+The data set consists of 800 rows and 13 columns. \
+The columns are \
+
+ 1. X - ID of each Pokemon
+ 
+ 2. Name - name of each Pokemon
+ 
+ 3. Type.1 - categorical data that describes type of the Pokemon, this influences its attack resistance or weakness.
+ 4. Type.2 - categorical data, some Pokemon have 2 type
+ 5. Total - continuous variable that describes overall status of the Pokemon, this effects the strength of each Pokemon.
+ 6. HP - this is the number of the damage that Pokemon can resist
+ 7. Attack - continuous variable, this is the number of how Pokemon can destroy other Pokemon in a battle field.
+ 8. Defense - continuous variable, this is the number of how Pokemon can resistance the damage from other Pokemon in a battle field.
+ 9. Sp..Atk - continuous variable, this is the number of special skill attack.
+ 10. Sp..Def - continuous variable, this is the number of special skill defense.
+ 11. Speed - continuous variable, the speed of Pokemon that determine which Pokemon will attract first it each round.
+ 12. Generation - discrete variable that describes the generation of Pokemon
+ 13. Legendary - binary variable, if the Pokemon is a legendary Pokemon, this column will be True, otherwise will be False.
+ 
+Legendary Pokemon is a Pokemon that considered to be rare and powerful. To predict whether or not a Pokemon is legendary, we will drop the first 2 columns which are  ID of each Pokemon and name of the Pokemon because these columns are unique value assigned to each Pokemon which don't relate to a legendary. \
+
+Hence, we will have 10 features with 800 example to predict lebel column which is Legendary.
+
+```{r}
+#deselect column X., Name, Type.1, Type.2
+pokemon <- pokemon_df %>% select(-X.,-Name )
+pokemon %>% head(5)
+dim(pokemon) # number of row and column
+```
+We will check the data set if there is null value, we will fill the null value the statistic data. However, this data set doen't contain null value so we don't have to replace with statistic data.
+
+```{r}
+pokemon %>% 
+  summarize(across(everything(),~sum(is.na(.x)))) #Check if there is null value in data frame
+```
+Then, we will convert categorical data into numerical data because the algorithm using distance metric to measure similarity. \
+
+The column Type.1 and Type.2 are categorical variable so we will convert the categorical data into numerical data. This method is called Lebel Encoding.
+
+```{r}
+#convert type1 and type2 into numerical data
+pokemon <- pokemon %>% 
+  mutate(Type.1 =  as.numeric(as.factor(pokemon$Type.1)),
+         Type.2 =  as.numeric(as.factor(pokemon$Type.2)),
+         Legendary = as.factor(pokemon$Legendary))
+pokemon %>% head(5)
+```
+Due to the data use measured in different units, we should standardize the features to have mean 0 and variance 1 (Hastie,Tibshirani and Friedman ,2009). We can do this as follows.
+```{r}
+pokemon_std <- pokemon %>%
+  mutate(Type.1 = scale(Type.1)) %>%
+  mutate(Type.2 = scale(Type.2)) %>%
+  mutate(Total = scale(Total)) %>%
+  mutate(HP = scale(HP)) %>%
+  mutate(Attack = scale(Attack)) %>%
+  mutate(Defense = scale(Defense)) %>%
+  mutate(Sp..Atk = scale(Sp..Atk)) %>%
+  mutate(Sp..Def = scale(Sp..Def)) %>%
+  mutate(Speed = scale(Speed)) %>%
+  mutate(Generation = scale(Generation))
+
+pokemon_std %>% #check mean = 0
+  summarize(across(where(is.numeric),~mean(.x))) %>%
+  round(digits = 0)
+
+pokemon_std %>% #check variance = 1
+  summarize(across(where(is.numeric),~var(.x))) %>%
+  round(digits = 0)
+```
+
+
+Next, we carry out the data set into train, validate and test set by using 50% of data as train set and 25% as validationset and the rest will be test set.\
+The train set will be used for training a model, validation set will be used for selecting hyper-parameter(K) and test set will be used as unseen data to evaluate model performance.\
+
+We can carry out train, validation, test split as follow.
+
+```{r}
+num_total<-pokemon_std%>%nrow()
+num_train<-floor(num_total*0.5) # number of train samples
+num_validate <- floor(num_total*0.25) # number of validation samples
+num_test<-num_total-num_train-num_validate # number of test samples
+
+set.seed(123) # set random seed for reproducibility
+
+test_inds<-sample(seq(num_total),num_test) #random test indices
+validate_inds <- sample(setdiff(seq(num_total),test_inds),num_validate) #random validation indices
+train_inds<-setdiff(seq(num_total),union(validate_inds,test_inds)) #the rest will be train indices
+
+#split data into train, test and validation set according to indices
+pokemon_train <-pokemon_std %>% filter(row_number() %in% train_inds)
+pokemon_test <-pokemon_std %>% filter(row_number() %in% test_inds)
+pokemon_validate <- pokemon_std %>% filter(row_number() %in% validate_inds)
+
+pokemon_train_x <- pokemon_train %>% select(-Legendary)
+pokemon_train_y <- pokemon_train %>% pull(Legendary)
+
+pokemon_test_x <- pokemon_test %>% select(-Legendary)
+pokemon_test_y <- pokemon_test %>% pull(Legendary)
+
+pokemon_validate_x <- pokemon_validate %>% select(-Legendary)
+pokemon_validate_y <- pokemon_validate %>% pull(Legendary)
+
+```
+
+
+After that, we will carry out the K-nearest neighbour method by using kknn library. Then, we will train the model using train data and use every column as features to predict Legendary column. \
+
+We have to select K for training the model because model performance depends on K. Low number of K leads to over-fitting which will result in low bias but high variance. Whereas, large number of K will result in under-fitting (Boehmke and Greenwell, 2020) ; therefor, **K is an important hyper-parameter for K nearest neighbour.** \
+
+In this stage, we will use the number of neighbours equal to 1, use kernel equal to rectangular which is standard un-weighted knn model and use distance equal to 2 which is Euclidean distance.
+
+We can carry out the method as follows.
+
+```{r,message=FALSE,warning=FALSE}
+library(kknn) # load library knn
+k <- 1 # set number of neighbours
+knn_model <- train.kknn(Legendary ~ ., data = pokemon_train, ks = k, 
+                        kernel = "rectangular",distance = 2) #train the model using train data and specify column that we want to predict
+```
+
+
+We can compute train error as follows.
+```{r}
+pokemon_train_predict <- predict(knn_model, pokemon_train_x %>% data.frame())
+train_error <- mean(abs(pokemon_train_predict != pokemon_train_y))
+train_error
+```
+
+The train error is 0 but this dose not mean that the model have a good performance.\
+
+**The appropriate metric for the model performance is mean test error.**  
+
+Hence,we can predict Legendary on the test data and estimate the model performance as follows.
+```{r}
+pokemon_test_predict <- predict(knn_model, pokemon_test_x %>% data.frame())
+test_error <- mean(abs(pokemon_test_predict != pokemon_test_y))
+test_error
+```
+
+The model has the test error at 0.1. To improve the model performance, we have to minimize the test error by choosing optimal K but we cannot measure the test error directly because the test error depends on unseen data. Consequently, we train and validation set to explore the model performance and select optimal K in the following section, while keeping the test data as an unseen data for measuring performance. 
+
+## Explore the performance of K-nearest neighbour
+
+In this section we will explore 
+
+ - [How the error of train and validation data varies if we vary the amount of training data.]
+ - [How validation error varies if K is varied.]
+
+#### How the error of train and validation data varies if we vary the amount of training data. 
+
+Firstly, we will combine the train and validation set and re-split the train  and validation set followed the amount of training that we want to split.\ 
+We can do this by creating a function called "train_validation_split" that take input train_data, validate_data, split_size (percentage of train and validation we want to split) as follows.
+
+```{r}
+#create a function
+train_validation_split <- function(train_data,validate_data,split_size){
+  
+  train_validate_data <- rbind(train_data,validate_data) #combine train and validation data
+  
+  num_total <- train_validate_data %>% nrow() #total number of train and validation data
+  num_train <-  floor(split_size*num_total) #split train and validation size
+  num_validate <- num_total-num_train
+  
+  set.seed(123) # set seed for reproducibility
+  
+  train_inds<-sample(seq(num_total),num_train) #random sample of test indices 
+  validate_inds <- setdiff(seq(num_total),train_inds)
+  
+  #re-split data into train and validation
+  train_set <- train_validate_data %>% filter(row_number() %in% train_inds) 
+  validate_set <- train_validate_data %>% filter(row_number() %in% validate_inds)
+  
+  train_x <- train_set %>% select(-Legendary)
+  train_y <- train_set %>% pull(Legendary)
+  
+  validate_x <- validate_set %>% select(-Legendary)
+  validate_y <- validate_set %>% pull(Legendary)
+  
+  #train knn model
+  knn_model <- train.kknn(as.factor(Legendary) ~ ., data = train_set, ks = 5 , kernel = "rectangular")
+  train_predict <- predict(knn_model, train_x %>% data.frame())
+  train_error <- mean(abs(train_predict != train_y))
+  
+  validate_predict <- predict(knn_model, validate_x %>% data.frame())
+  validate_error <- mean(abs(validate_predict != validate_y))
+  
+  return(list(train_error=train_error,validate_error=validate_error))
+}
+```
+
+The amount of combined train and validation size is equal to 75% of the total data. We will vary amount of training data from 30% to 70% of the total data as follows.
+
+```{r}
+split <- seq(0.4,0.95,0.05)
+
+train_validation_split_result <- data.frame(split=split) %>%
+  #compute the percentage of training size compared to total data
+  mutate(train_size = map_dbl(split,~(0.75*(.x))*100)) %>%
+  mutate(out = map(split,
+                   ~train_validation_split(train_data=pokemon_train,
+                                           validate_data = pokemon_validate,
+                                           split_size=.x))) %>%
+  mutate(train_error = map_dbl(out,~((.x)$train_error)),
+         validate_error = map_dbl(out,~((.x)$validate_error)))%>%
+  pivot_longer(cols=c("train_error","validate_error")) %>%
+  rename(error=name)
+```
+
+```{r,message=FALSE,fig.align='center',fig.cap= "fig.3 amount of training data compared to total data and error(%) of train and validation set"}
+ggplot(data=train_validation_split_result) + geom_smooth(aes(x=train_size,y=value*100,color=error))+theme_bw()+xlab("train size (%)")+ylab("error(%)")
+```
+
+From the picture 3, we can see that if we increase the amount of train data, the train error will decrease because the model has more data to measure similarity as train size increase. Whereas, the growth in amount of training data leads to the reduction in validation error until the minimum point, then the error will rise.
+
+#### How validation error varies if K is varied.
+
+In this section, we will explore how validation error varies if we change K. We can carry out this by created a function that compute train error and validation error as follows.
+
+```{r}
+compute_error_knn <- function(train_data,train_x,train_y,validate_x,validate_y,label,k){
+  
+  knn_formula <- paste0(label,"~.")
+  
+  #train model
+  knn_model <- train.kknn(knn_formula, data = train_data, ks = k, kernel = "rectangular",distance = 2)
+  
+  train_predict <- predict(knn_model, train_x %>% data.frame()) #predict train set
+  train_error <- mean(abs(train_predict != train_y)) #compute train error
+  
+  validate_predict <- predict(knn_model, validate_x %>% data.frame()) #predict validation set
+  validate_error <- mean(abs(validate_predict != validate_y)) #compute validation error
+  
+  return(list(train_error=train_error,validate_error=validate_error))
+}
+
+```
+
+We will vary K from 1 to 100 and apply to the function as follows.
+
+```{r}
+k <- seq(1,100,1)
+label <- "Legendary"
+
+compute_error_knn_result <- data.frame(k=k) %>%
+  mutate(out = map(k,
+                   ~compute_error_knn(train_data=pokemon_train,
+                                      train_x = pokemon_train_x,
+                                      train_y = pokemon_train_y,
+                                      validate_x = pokemon_validate_x,
+                                      validate_y = pokemon_validate_y,
+                                      label=label,k=.x))) %>%
+  mutate(train_error = map_dbl(out,~((.x)$train_error)),
+         validate_error = map_dbl(out,~((.x)$validate_error)))
+
+```
+
+```{r,message=FALSE,fig.align='center',fig.cap= "fig.4 the relationship between K and train error(%)"}
+ggplot(data=compute_error_knn_result) + geom_smooth(aes(x=k,y=train_error*100))+theme_bw()+xlab("k")+ylab("train error(%)")
+```
+From figure 4, we can observe that as the number of K increase, the train error will rise. The minimum train error occur when K equal to 1 which lead to model over-fitting with high variance and low bias. As the number of K grow, the model will consider many neighbors which results in more complexity and model under-fitting (low variance and high bias) so the train error will increase.
+
+```{r,message=FALSE,fig.align='center',fig.cap= "fig.5 the relationship between K and validation error(%)"}
+ggplot(data=compute_error_knn_result) + geom_smooth(aes(x=k,y=validate_error*100))+theme_bw()+xlab("k")+ylab("validation error(%)")
+```
+Figure 5 is similar to figure 4 that as the growth of K, there will be an increase in validation error but when K is less than 20, the validation error drop until the minimum point. The minimum validation error is the point that has an optimal value between bias and variance. So, we will select K from the optimal point which has the lowest validation error and re-train the model as follows.
+
+
+```{r}
+#select minimum validation error
+min_validate_error <- compute_error_knn_result %>% pull(validate_error) %>% min() 
+
+#find the optimal K
+optimal_k <- compute_error_knn_result %>% filter(validate_error == min_validate_error) %>% pull(k)
+optimal_k 
+```
+
+There are various value of the optimal K so, we will select the lowest value and re-train the model with lowest optimal K. Then, we will predict the test set and compute test error as follows.
+
+```{r}
+optimal_k_min <- optimal_k %>% min()
+optimised_knn <- train.kknn(Legendary ~., data = pokemon_train, ks = optimal_k_min, 
+                            distance = 2, kernel = "rectangular")
+knn_test_pred <- predict(optimised_knn,pokemon_test_x)
+
+knn_test_error <- mean(abs(knn_test_pred != pokemon_test_y))
+knn_test_error
+```
+
+When we trained the model with optimal K, we can see that the model perform better than using K equal to 1 from the previous section that we get the train error 0 and test error 0.1. By using K=9, the model has test error at 0.07 or 7%.\
+
+One train, validation and test split can lead to unstable hyper-parameter. To avoid this problem, we can use k-fold cross validation for selecting optimal K.\
+
+Additionally,the distance metric is also one of the hyper-parameters for K-nearest neighbour so we should select the appropriate distance metric for improving the model performance.\
+
+In the next section, we will select the appropriate distance metric and number of K by using k-fold cross validation.
+
+## Using k-fold cross validation
+
+We can improve the model performance by using k-fold cross validation. This is a method that we split the train and validation data into "k" fold and use all of the folds to estimate the performance of the model with various number of a hyper-parameter.\
+
+We can carry out k-fold cross validation from the Pokemon data set as follows.
+
+First, we will combine the train and validation set that we divided in previous section. Then, we will create a function the split the data into k-fold.
+
+```{r}
+
+train_validate_data <- rbind(pokemon_train,pokemon_validate) #combine train and validation data
+
+#create a function that split data into k fold
+train_validate_by_fold <- function(train_validate_data, fold, num_fold){
+  
+  num_train_validate_data <- train_validate_data %>% nrow() #total number of data
+  num_per_fold <- ceiling(num_train_validate_data/num_fold) #compute number of data per fold
+  
+  fold_start <- (fold-1)*num_per_fold+1 #fold start indices
+  fold_end <- min(fold*num_per_fold,num_train_validate_data) #fold end indices
+  fold_indicies <- seq(fold_start,fold_end) #fold indicies
+  
+  validation_data <- train_validate_data %>% filter(row_number() %in% fold_indicies) #split validation data
+  
+  train_data <-train_validate_data %>% filter(!row_number() %in% fold_indicies) #split train data
+  
+  return(list(train=train_data,validation=validation_data))
+}
+```
+
+Next, we will create a function that compute validation error of each fold and vary the number of K and distance metric. We can carry out the function ass follows.
+
+```{r}
+knn_error_by_fold <- function(train_validate_data,fold,num_fold,label,k,distance){
+  
+  data_split <- train_validate_by_fold(train_validate_data,fold,num_fold)
+  train_data <- data_split$train
+  validation_data <- data_split$validation
+  
+  validation_data_x <- validation_data %>% select(-Legendary)
+  validation_data_y <- validation_data %>% pull(Legendary)
+  
+  knn_formula <- paste0(label,"~.")
+  knn_model <- train.kknn(knn_formula, data= train_data, ks = k, distance = distance,
+                          kernel = "rectangular")
+  
+  knn_pred_val_y <- predict(knn_model,validation_data_x %>% data.frame())
+  val_error<- mean(abs(knn_pred_val_y != validation_data_y))
+
+  return(val_error)
+}
+```
+
+We will use 5 fold, vary K from 1 to 50 and vary distance metric 1 to 2. The distance equal to 1 and 2 means that we use Euclidean distance and Manhattan distance respectively.
+
+```{r,message=FALSE}
+num_fold <- 5 #specify number of fold
+ks <- seq(1,50,1) #vary K from 1 to 50
+d <- c(1,2) #vary distance metric 
+label <- "Legendary" #specify coulumn we want to predict
+
+cross_val_result <- cross_df(list(k=ks,fold=seq(num_fold),d=d)) #create data frame with all possible pairs of k,fold and distance
+
+d <- cross_val_result %>% pull(d)
+f<- cross_val_result %>% pull(fold)
+k <- cross_val_result %>% pull(k)
+
+cross_val_result <- cross_val_result %>%
+  #compute validation error
+  mutate(val_error = pmap_dbl(list(k,f,d),
+                              ~knn_error_by_fold(train_validate_data,..2,
+                                                        num_fold,label,..1,..3))) %>%
+  group_by(k,d) %>%
+  summarise(val_error=mean(val_error))
+```
+
+```{r}
+min_error_k_d <- cross_val_result %>% pull(val_error) %>% min() #select validation error
+optimal_k_d <- cross_val_result %>% filter(val_error==min_error_k_d) %>% select(k,d) #find optimal K and distance
+optimal_k_d 
+```
+
+There are various pairs of K and distance that has the minimum validation error so we will use the first pair. We canre-train the model and compute the test error as follows.
+
+```{r}
+optimal_k_d_min <- optimal_k_d[1,]
+optimised_knn_fold_k_d <- train.kknn(Legendary ~., data = train_validate_data, ks = optimal_k_d_min$k, 
+                            distance = optimal_k_d_min$d, kernel = "rectangular")
+knn_optimised_test_k_d_pred <- predict(optimised_knn_fold_k_d,pokemon_test_x)
+
+knn_optimised_tes_k_d_error <- mean(abs(knn_optimised_test_k_d_pred != pokemon_test_y))
+knn_optimised_tes_k_d_error
+```
+We re-trained the model with optimal K and distance metric, the model has test error at 0.08 or 8%.
+
+There is another method called k*l fold cross validation that split data into k folds while using k-1 folds as train and validation set for tuning optimal number of nearest neighbour (K) and using 1 fold as test data. This method will allow the model to get better performance on unseen data. Because it requires another loop to perform the testing process, it is computationally expensive which requires a lot of memory to compute. Due to the limitation of computer, we cannot use this method for tuning both K and distance metric. We will tune only K and carry out this as follows.
+
+```{r}
+#create a function that split data into k fold
+
+train_test_by_fold <- function(data,fold,num_folds){
+  
+  num_total <- data %>% nrow()
+  num_per_fold <- ceiling(num_total/num_folds)
+  
+  fold_start <- (fold-1)*num_per_fold+1
+  fold_end <- min(fold*num_per_fold,num_total)
+  
+  fold_indicies <- seq(fold_start,fold_end)
+  
+  test_data <- data %>% filter(row_number() %in% fold_indicies)
+  train_and_val_data <-  data %>% filter(!row_number() %in% fold_indicies)
+  
+  return(list(train_and_val=train_and_val_data, test=test_data))
+  
+}
+```
+
+
+```{r}
+#create a function that return optimal K
+get_optimal_k_by_cv <- function(data,num_folds,label,ks){
+  
+  folds <- seq(num_folds)
+  cross_val_result <- cross_df(list(k=ks,fold=seq(num_fold))) %>%
+    mutate(val_error = map2_dbl(k,fold,
+                              ~knn_error_by_fold(data,.y,num_fold,label,.x,distance=2))) %>%
+    group_by(k) %>%
+    summarise(val_error=mean(val_error))
+  
+  min_error <- cross_val_result %>% pull(val_error) %>% min()
+  optimal_k <- cross_val_result %>% filter(val_error==min_error) %>% pull(k) %>% min()
+  
+  return(optimal_k)
+}
+```
+
+```{r}
+#create a function that compute test error
+knn_error_by_fold_2 <- function(data,fold,num_fold_test,num_fold_val,label,k){
+  
+  data_split <- train_test_by_fold(data,fold,num_fold_test)
+  train_validate_data <- data_split$train_and_val
+  test_data <- data_split$test
+
+  test_data_x <- test_data %>% select(-Legendary)
+  test_data_y <- test_data %>% pull(Legendary)
+  
+  optimal_k <- get_optimal_k_by_cv(train_validate_data,num_fold_val,label,k)
+  
+  knn_formula <- paste0(label,"~.")
+  knn_model <- train.kknn(knn_formula, data= train_validate_data, ks = optimal_k, distance = 2,
+                          kernel = "rectangular")
+  
+  
+  knn_test_y <- predict(knn_model,test_data_x %>% data.frame())
+  test_error<- mean(abs(knn_test_y != test_data_y))
+
+  return(test_error)
+}
+```
+
+```{r}
+#create a function that compute mean test error
+knn_test_error_cv <- function(data,num_folds_test,num_folds_val,label,k){
+  
+  set.seed(123)
+  data <- data %>% sample_n(nrow(.))
+  folds <- seq(num_folds_test)
+  
+  mean_error <- data.frame(fold=folds) %>%
+    mutate(test_error = map_dbl(fold,
+                                ~knn_error_by_fold_2(data,.x,num_folds_test,num_folds_val,label,k))) %>%
+    pull(test_error) %>%
+    mean()
+  
+  return(mean_error)
+}
+```
+
+We will use 5 folds for train van validation and do the test for 5 times with K range from 1 to 50 as follows.
+
+```{r}
+knn_test_error_cv(pokemon_std,num_folds_test=5,num_folds_val=5,label,k=seq(50))
+```
+
+By using k*l fold cross validation, we get the error at 0.07125 or 7.125%.
+
+## Summary
+K-nearest neighbour or Knn is one of supervised learning algorithms that solves a problem based on the training data. It is a non-parametric approach that suitable for non-linear classification and regression problem. \
+
+There are two hyper-parameters for the model - K and distance metric. K is the most important hyper-parameter that affect model performance. If we select low K, the model will have low train error with high variance and low bias. This leads to model over-fitting. In contrast, if K is high, the model will be under-fitting that results in high test error.\
+
+For hyper-parameter tuning, using one single train,validation and test split may lead to unstable hyper-parameter selection but we can avoid this by using cross validation. \
+
+
+#### References
+
+ - data set from Alberto Barradas (2016). *Pokemon with stats* (Version 2) [Data set]. (Retrieved from https://www.kaggle.com/abcsds/pokemon)
+ - Trevor Hastie, Tibshirani, R. and Friedman, J. (2009). *The Elements of Statistical Learning.* Editorial: New York, Ny Springer New York.
+ - Jo, T. (2021). *MACHINE LEARNING FOUNDATIONS : supervised, unsupervised, and advanced learning.* S.L.: Springer.
+ - Boehmke, B. and Greenwell, B. (2020). *Hands-On Machine Learning with R*. [online] Taylor & Francis Group. Available at: <https://bradleyboehmke.github.io/HOML/> [Accessed 17 December 2021].
+ - Peterson, L., 2009. K-nearest neighbor. [online] Scholarpedia. Available at: <http://scholarpedia.org/article/K-nearest_neighbor#Classification_decision_rule_and_confusion_matrix> [Accessed 17 December 2021].
+ 
+
+
