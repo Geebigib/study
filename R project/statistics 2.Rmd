@@ -1,0 +1,411 @@
+---
+title: <center> statistics 2 \center
+author: '<center> Kornkamon Mathuros \center'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Section B
+## B.1
+```{r,  include=FALSE}
+library(Stat2Data)
+library(tidyverse)
+library(latex2exp)
+library(here)
+```
+In this question we consider a security system at a factory. A sensor is designed to make a sound if a person walks within one metre of the gate. However, the sensor is not perfectly reliable: It sometimes makes a sound when there is no one present, and sometimes fails to make a sound when someone is present.\
+<p>&nbsp;</p>
+For simplicity we will view the passage of time as being broken down into a series of phases lasting exactly one minute. For each minute, we let *p~0~* denote the conditional probability that the sensor makes a sound if there is no person within one metre of the gate, during that minute. Moreover, for each minute, we let *p~1~* denote the conditional probability that the sensor makes a sound at least once, if there is at least one person present, during that minute. Suppose also that the probability that at least one person walks within one metre of the gate over any given minute is *q*. Again, for simplicity, we assume that  *p~0~*,*p~1~*,*q* ∈ [0, 1] are all constant. Let *ϕ* denote the
+conditional probability that at least one person has passed within one metre of the gate during the current minute, given that the alarm has made a sound during that minute.\
+<p>&nbsp;</p>
+**Q: (a) Write a function called c_prob_person_given_alarm which gives *ϕ* as a function of *p~0~*,*p~1~* and *q*.**\
+Let **A** be the event that the sensor makes a sound for a given minute.\
+Let **B** be the event that there is at least one person presents within one metre of the gate any given minute minute.\
+Thus, 
+
+\begin{align*} 
+P_{0} & = P( A \mid B^{c}) \\
+P_{1} & = P( A \mid B ) \\
+q & = P( B ) \\
+ ϕ & = P( B \mid A )
+ \end{align*}
+ 
+Hence, By the Law of total probability 
+
+\begin{align*}  P(A)  & = P(A \mid B)\times\ P(B)+P(A \mid B^{c} )\times\ P(B^{c}) \\
+  & = P_{1} \times\ q + P_{0} \times\ (1-q) 
+\end{align*}
+
+From the question, we want to find a function of conditional probability that someone walked within one metre of the gate given that the alarm has made a sound ( P(B|A) )\
+We then apply Bayes Theorem 
+ $$ P(B \mid A)=\frac{P(A \mid B) \times\ P(B)}{P(A)} $$
+Thus, we have
+$$ ϕ = \frac{P_{1} \times\ q}{P_{1}\times\ q + P_{0}\times\ (1-q)} $$
+**A:  a function called c_prob_person_given_alarm can be written as followed**
+```{r}
+c_prob_person_given_alarm <- function(p0,p1,q){
+  return((p1*q)/((p1*q)+(p0*(1-q))))
+}
+```
+**Q: (b) Consider a setting in which p0 = 0.05, p1 = 0.95 and q = 0.1. In this case, what is ϕ?**
+```{r}
+c_prob_person_given_alarm(p0 = 0.05,p1 = 0.95,q = 0.1)
+```
+**A: ϕ is equal to 0.68 **
+<p>&nbsp;</p>
+**Q: (c) Next consider a setting in which p0 = 0.05, p1 = 0.95 and generate a plot which shows ϕ as we vary q. That is, you should display a curve which has q along the horizontal axis and the corresponding value of ϕ along the vertical axis.**
+```{r,message=FALSE,fig.align = 'center'}
+p0 <- 0.05
+p1 <- 0.95
+q_min <- 0
+q_max <- 1
+q_inc <- 0.01
+
+phi <- data.frame( q = seq(q_min,q_max,q_inc)) %>%
+  mutate(phi = map_dbl(.x=q,.f=~c_prob_person_given_alarm(p0,p1,.x)))
+phi %>% ggplot()+geom_smooth(aes(x=q,y=phi))+theme_bw()+xlab("q")+ylab(TeX("$\\Phi$"))
+```
+
+## B.2
+
+Suppose that α,β,γ ∈ [0, 1] with α+β+γ ≤ 1 and let X be a discrete random variable with with distribution supported on {0, 1, 2, 5}. Suppose that P (X = 1) = α, P (X = 2) = β, P (X = 5) = γ and P (X $\not\in$ {0, 1, 2, 5}) = 0.\
+
+**Q: (a) What is the probability mass function pX : R → [0, 1] for X?** \
+
+**A: the probability mass function pX: R → [0, 1] for X is**
+
+\begin{equation}
+  p(x) =
+    \begin{cases}
+      1 - \alpha -\beta -\gamma & \text{if $ x = 0 $}\\
+      \alpha & \text{if $ x = 1 $}\\
+      \beta & \text{if $ x = 2 $}\\
+      \gamma & \text{if $ x = 5 $}\\
+      0 & \text{otherwise}
+    \end{cases}       
+\end{equation}
+
+**Q: (b) Give an expression for the expectation of X in terms of α,β,γ. **
+
+**A: ** 
+$$  \mathbb{E}[X] = \alpha + 2\beta + 5 \gamma $$
+
+**Q: (c) Give an expression for the population variance of X in terms of α,β,γ. **
+
+**A: ** 
+\begin{align*}  Var(X) & =  \mathbb{E}[X^{2}] - \mathbb{E}[X]^{2} \\
+& = (\alpha +4\beta+25\gamma) - (\alpha + 2\beta + 5 \gamma)^{2}
+\end{align*}
+
+Suppose $X_{1}$, . . . , $X_{n}$ is a sample consisting of independent and identically distributed random variables with P ($X_{i}$ = 1) = α, P ($X_{i}$ = 2) = β, P ($X_{i}$ = 5) = γ and P ($X_{i}$ $\not\in$ { 0, 1, 2, 5}) = 0 for i = 1, . . . , n. Let 	$\overline{X}$ := $\frac{1}{n}$$\sum_{i = 1}^{n} X_{i}$ be the sample mean.
+
+**Q: (d) Give an expression for the expectation of the random variable X in terms of α,β,γ**
+
+From the law of large number\
+
+Suppose X has expectation $\mathbb{E}(X) = \mu$ and vriance $Var(X) = \sigma^{2}$ \
+
+Suppose $P_{X_{1}} = P_{X_{2}} =...=P_{X_{n}} =P_{X}$ then, $X_{1}$, . . . , $X_{n}$ are independent copies of $X$. so, $\mathbb{E}(X_{i}) = \mu$ and $Var(X_{i}) = \sigma^{2}$ \
+
+\begin{align*}  
+\mathbb{E}[\overline{X}] & = \mathbb{E}[\frac{1}{n} \sum_{i = 1}^{n} X_{i}] \\
+& =\frac{1}{n} ( \sum_{i = 1}^{n} \mathbb{E}[X_{i}]) = \frac{1}{n} \sum_{i = 1}^{n}\mu =\mu
+\end{align*}
+
+**A: **
+Therefore; 
+$$\mathbb{E}[\overline{X}] = \alpha + 2\beta + 5 \gamma $$
+**Q: (e) Give an expression for the population variance of the random variable X in terms of α,β,γ,n.**
+\begin{align*}  
+Var(\overline{X}) & = Var(\frac{1}{n}\sum_{i = 1}^{n} X_{i}) \\
+& = (\frac{1}{n})^{2} \sum_{i = 1}^{n} Var(X_{i}) \\
+& = (\frac{1}{n})^{2} \cdot (n \cdot \sigma^{2}) = \frac{\sigma^{2}}{n}
+\end{align*}
+**A: **
+$$ Var(\overline{X}) = \frac{ (\alpha +4\beta+25\gamma) - (\alpha + 2\beta + 5 \gamma)^{2}}{n}$$
+
+**Q: (f) Create a function called sample_X_0125() which takes as inputs α, β, γ and n and outputs a sample $X_{1}$, . . . , $X_{n}$ of independent copies of X where P (X = 1) = α, P (X = 2) = β, P (X = 5) = γ and P (X $\not\in$ {0, 1, 2, 5}) = 0.**
+
+**A:**
+```{r}
+sample_X_0125 <- function(alpha,beta,gamma,n){
+  sample_X<-data.frame(U=runif(n))%>%
+    mutate(X=case_when(
+      (0<=U)&(U<alpha)~1,
+      (alpha<=U)&(U<alpha+beta)~2,
+      (alpha+beta<=U)&(U<alpha+beta+gamma)~5,
+      (alpha+beta+gamma<=U)&(U<=1)~0))%>%
+    pull(X)
+return(sample_X)
+
+}
+```
+
+**Q: (g) Suppose that α = 0.1, β = 0.2, γ = 0.3. Use your function to generate a sample of size n = 100000 consisting of independent copies of X where P (X = 1) = α, P (X = 2) = β, P (X = 5) = γ and P (X $\not\in$ {0, 1, 2, 5}) = 0. What value do you observe for $\overline{X}$ ? What value do you observe for the sample variance? Is this the type of result you expect? Explain your answer. **
+
+**A: **
+```{r}
+set.seed(0) #set random seed for reproducible
+
+alpha <- 0.1
+beta <- 0.2
+gamma <- 0.3
+n <- 100000
+sample <- sample_X_0125(alpha,beta,gamma,n)
+#calculate sample mean and sample variance
+print(c(mean(sample), var(sample)))
+```
+```{r}
+#calculate expectation and variance
+expectation <- alpha+2*beta+5*gamma
+variance <- (alpha+4*beta+25*gamma)- (alpha+2*beta+5*gamma)^2
+print(c(expectation,variance))
+```
+
+The sample mean is 2.051 which is close to the expectation (population mean). This is because in this case, we use a large sample size. By the law of large number, if we increase the sample size, the sample mean will be closer to expectation value. The sample variance is 4.499 which is also close to population variance (4.4). \
+
+**Q: (h) Once again, take α = 0.1, β = 0.2, γ = 0.3. Conduct a simulation study to explore the behavior of the sample mean. Your study should involve 10000 trials. In each trial, you should set n = 100 and create a sample $X_{1}$, . . . , $X_{n}$ of independent and identically distributed random variables with P (Xi = 1) = α, P (Xi = 2) = β, P (Xi = 5) = γ and P (Xi $\not\in$ { 0, 1, 2, 5}) = 0 for i = 1, . . . , n. For each of the 10000 trials, compute the corresponding sample mean X based on $X_{1}$, . . . , $X_{n}$. **
+
+**A:**
+```{r, tidy=TRUE}
+set.seed(0) #set random seed for reproducible
+
+alpha <- 0.1
+beta <- 0.2
+gamma <- 0.3
+n_trial <- 10000
+n <- 100
+
+simulation_data <- data.frame(trial = 1:n_trial) %>%
+  mutate(sample_x = map(.x=trial,~sample_X_0125(alpha,beta,gamma,n))) %>%
+  mutate(sample_mean = map_dbl(.x=sample_x, ~mean(.x)))
+```
+
+**Q: Generate a histogram plot which displays the behavior of the sample mean within your simulation study. Use a bin width of 0.02. The height of each bar should correspond to the number of times the sample mean took on a value within the corresponding bin.**
+
+**A:**
+```{r,fig.align = 'center'}
+ggplot(data = simulation_data, aes(x=sample_mean))+geom_histogram(binwidth = 0.02,color="darkblue", fill="white")+theme_bw()+xlab("Sample Mean")
+```
+
+**Q:(j) What is the numerical value of the expectation E($\overline{X}$) in your simulation study? What is the numerical value of the variance Var($\overline{X}$)? Give your answers to 4 decimal places.**
+
+```{r}
+simulation_mean <- mean(simulation_data$sample_mean)
+simulation_variance <- var(simulation_data$sample_mean)
+print(c(round(simulation_mean, digits = 4),round(simulation_variance, digits = 4)))
+```
+**A:  the expectation E($\overline{X}$) is 1.9987 and the variance Var($\overline{X}$) is 0.0432**\
+
+Let fµ,σ : R → [0, ∞) be the probability density function of a Gaussian random variable with distribution N (µ, $\sigma^{2}$), so that the population mean is µ and the population variance is $\sigma^{2}$.
+
+**Q: (k) Now append to your histogram plot an additional curve of the form x → 200 · fµ,σ(x), which displays a rescaled version of the probability density function of a Gaussian random variable with population mean µ = E($\overline{X}$) and population variance $\sigma^{2}$ = Var($\overline{X}$). You may wish to consider 10000 · fµ,σ(x) displayed for a sequence of x-values between µ − 4 · σ and µ + 4σ in increments of 0.0001. Make sure that the plot is well-presented and both the histogram and the rescaled density are clearly visible.**
+```{r, tidy=TRUE}
+set.seed(0) #set random seed for reproducible
+alpha <- 0.1
+beta <- 0.2
+gamma <- 0.3
+mu <- alpha+2*beta+5*gamma
+var <- ((alpha+4*beta+25*gamma)- (alpha+2*beta+5*gamma)^2)/n
+x_min <- mu - 4*sqrt(var)
+x_max <- mu + 4*sqrt(var)
+x_inc <- 0.0001
+gaussian_data <- data.frame(x=seq(x_min,x_max,x_inc))%>%
+  mutate(pdf=map_dbl(.x=x,
+                   ~dnorm(x=.x,mean=mu,sd=sqrt(var)))) %>%
+  mutate(pdf_200 = 200*pdf)
+  
+```
+```{r, tidy=TRUE,fig.align = 'center'}
+colors<-c("Gaussian pdf"="red", "simulation data"="blue")
+fill<-c("Gaussian pdf"="white", "simulation data"="white")
+
+ggplot()+geom_histogram(data = simulation_data, aes(x=sample_mean,color="simulation data"),fill="white",binwidth = 0.02)+ theme_bw()+ xlab("X")+ 
+  geom_line(data =gaussian_data, aes(x,y=pdf_200, color= "Gaussian pdf"),size=1)+ylab("rescaled density")+
+scale_color_manual(name = "", values=colors)+
+scale_fill_manual(name = "", values=fill)
+```
+
+**Q: (l) Discuss the relationship between the histogram and the additional curve you observe. Can you explain what you observe? ** \
+
+**A: ** \
+The additional curve is probability density function of Gaussian distribution that has mean equal to population mean of the sample data and variance equal to population variance of the sample data. The amount of mean of sample data mostly distribute near the population mean according to central limit theorem.
+Additionally, by central limit theorem, for sufficiently large n, we expect the simulation data to be well-approximated by a re-scaled version of the Gaussian probability density function.
+
+## B.3
+In this question we shall use the exponential distribution to model time intervals between arrival times of birds at a bird feeder\
+
+Let λ > 0 be a positive real number. An exponential random variable X with parameter λ is a continuous random variable with density pλ : R → (0, ∞) defined by\
+
+\begin{equation}
+  p_{\lambda}(x) =
+    \begin{cases}
+      0 & \text{if $ x < 0 $}\\
+      \lambda e^{-\lambda x} & \text{if $ x \ge 0 $}
+    \end{cases}       
+\end{equation}
+
+**Q: (a) Give a formula for the the population mean and variance of an exponential random variable X with parameter λ.**
+
+**A: **
+population mean $\mathbb{E}[{X}]$ can be computed by using integration by parts
+
+\begin{align*}  
+\mathbb{E}[{X}] & = \int_{-\infty}^{\infty} xp_{\lambda}(x) ~ dx = \int_{0}^{\infty} \lambda x e^{-\lambda x} ~ dx\\
+&= \left [-x e^{-\lambda x}\right]_{0}^{\infty} +\int_{0}^{\infty}  e^{-\lambda x} ~ dx \\
+
+& = \left[-\frac{1}{\lambda} e^{- \lambda x} \right ]_{0}^{\infty} = \frac{1}{\lambda} 
+\end{align*}
+
+**Hence, $\mathbb{E}[{X}] = \frac{1}{\lambda}$**
+
+population variance can be computed by $Var(X) = \mathbb{E}[{X^{2}}] - \mathbb{E}[{X}]^{2}$
+
+$\mathbb{E}[{X^{2}}]$ can find by using integration by parts
+\begin{align*}  
+\mathbb{E}[{X^{2}}] & = \int_{-\infty}^{\infty} x^{2}p_{\lambda}(x) ~ dx = \int_{0}^{\infty} \lambda x^{2} e^{-\lambda x} ~ dx\\
+&= \left [-x^{2} e^{-\lambda x}\right]_{0}^{\infty} + 2\int_{0}^{\infty}  x e^{-\lambda x} ~ dx \\
+
+& = \frac{2}{\lambda} \cdot \int_{0}^{\infty} \lambda x e^{-\lambda x} ~ dx= \frac{2}{\lambda} \cdot \mathbb{E}[{X}] \\
+& = \frac{2}{\lambda^{2}}
+\end{align*}
+
+**Hence, $Var(X) = \mathbb{E}[{X^{2}}] - \mathbb{E}[{X}]^{2} = \frac{1}{\lambda^{2}}$**
+
+**Q:(b) Give a formula for the cumulative distribution function and the quantile function for exponential random variables with parameter λ.**
+
+**A:**
+
+The cumulative distribution function 
+\begin{equation}
+F_{\lambda} (x) = \int_{-\infty}^{x} p_{\lambda} (z)~dz 
+=     \begin{cases}
+      0 & \text{if $ x \le 0 $}\\
+      \int_{0}^{x}\lambda e^{-\lambda z} dz & \text{if $ x > 0 $}
+    \end{cases}
+\end{equation}
+
+Since $\int_{0}^{x}\lambda e^{-\lambda z} dz = \left[ -e^{-\lambda z} \right ]_{0}^{x} = 1 - e^{-\lambda x}$
+
+Hence, the cumulative distribution function is given by
+\begin{equation}
+F_{\lambda} (x) =
+\begin{cases}
+      0 & \text{if $ x \le 0 $}\\
+      1 - e^{-\lambda x} & \text{if $ x > 0 $}
+    \end{cases}
+\end{equation}
+
+The quantile function is given by
+\begin{align*}
+F_{\lambda}^{-1} (p) & := inf \{ x \in R : F_{\lambda}(x) \le p \} \\
+& = \begin{cases}
+      -\infty & \text{if $ p=0 $}\\
+      -\frac{1}{\lambda}ln(1-p) & \text{if $ p \in (0,1] $}
+    \end{cases}
+\end{align*}
+
+**Q: (c) Suppose that $X_{1}$, · · · ,  $X_{n}$ is an i.i.d sample from the exponential distribution with an unknown parameter $λ_{0}$ > 0. What is the maximum likelihood estimate $\hat{λ}_{MLE}$ for $λ_{0}$?**
+
+In order to find $\hat{λ}_{MLE}$, first we create likelihood function;
+$$ l(\lambda) = \prod_{x = 1}^{n} p_{\lambda}(X_{i}) = \prod_{x = 1}^{n} \lambda e^{-\lambda x} = \lambda^{n} e^{-\lambda \sum_{i=1}^{n}x}$$
+Hence, the log-likelihood function is
+$$ log l(\lambda) = n log(\lambda)  -\lambda\sum_{i=1}^{n}x$$
+To find maximum likelihood estimate $\hat{λ}_{MLE}$, we take derivative of log-likelihood function as follow:
+$$ \frac{d}{d\lambda} log l(\lambda) = 0 $$
+Hence, we have
+$$ \frac{d}{d\lambda} log l(\lambda) = \frac{d}{d\lambda} (n log(\lambda)  -\lambda\sum_{i=1}^{n}x) = \frac{n}{\lambda} - \sum_{i=1}^{n}x $$
+
+Thus, by setting derivative of log-likelihood equal to 0;
+\begin{align*}
+\frac{n}{\lambda} - \sum_{i=1}^{n}x & = 0 \\
+\lambda & = \frac{n}{\sum_{i=1}^{n}x} = \frac{1}{\overline{X}}
+\end{align*}
+
+**A: Hence,  maximum likelihood estimate for $\lambda_{0}$ is given by $\hat{λ}_{MLE} = \frac{1}{\overline{X}}$**
+
+**Q: (d) Conduct a simulation study to explore the behavior of the maximum likelihood estimator $\hat{λ}_{MLE}$ for $λ_{0}$ on simulated data $X_{1}$, · · · ,  $X_{n}$ generated using the exponential distribution. Consider a setting in which $λ_{0}$ = 0.01 and generate a plot of the mean squared error as a function of the sample size. You should consider a sample sizes between 5 and 1000 in increments of 5, and consider 100 trials per sample size. For each trial of each sample size generate a random sample $X_{1}$, · · · ,  $X_{n}$ of the exponential distribution with parameter $λ_{0}$ = 0.01, then compute the maximum likelihood estimate $\hat{λ}_{MLE}$ for $λ_{0}$ based upon the corresponding sample. Display a plot of the mean square error of $\hat{λ}_{MLE}$ as an estimator for $λ_{0}$ as a function of the sample size.**
+
+```{r, tidy=TRUE, fig.align='center',message=FALSE}
+set.seed(0) # set seed for reproducible
+
+lambda_0<-0.01
+sample_size_min<-5
+sample_size_max<-1000
+sample_size_inc<-5
+trials_per_sample_size<-100
+
+# create data frame for all pairs of sample_size and trial
+simulation_df <-crossing(sample_size=seq(sample_size_min,sample_size_max, sample_size_inc),
+                        trial=seq(trials_per_sample_size)) %>%
+  #generate a random sample X1, · · · , Xn of the exponential distribution
+  mutate(simulation=pmap(.l=list(sample_size,trial),
+                         .f=~rexp(.x,rate =lambda_0))) %>%
+  # compute lambda_MLE of each pair of sample_size and trial
+  mutate(lambda_mle=map_dbl(.x=simulation,~1/mean(.x)))%>%
+  group_by(sample_size)%>%
+  # compute mean square error of lambda_MLE
+  summarise(msq_error=mean((lambda_mle-lambda_0)^2))
+
+# generate a plot of the mean squared error as a function of the sample size
+simulation_df %>% ggplot(aes(x=sample_size,y=msq_error))+
+  geom_smooth()+ theme_bw()+ xlab("Sample size")+ylab("Mean square error")
+```
+
+Now download the csv file entitled “birds_data_EMATM0061” from the Assessment section within Blackboard. The csv file contains synthetic data on arrival times for birds at a bird feeder, collected over a five week period. The species of bird and their arrival time are recorded.
+
+```{r}
+file_name<-"bird_data_EMATM0061" #specify file name that we want to read
+folder <- here() #directory of the file using library here
+birds_data_EMATM0061 <- read.csv(paste0(folder,"\\",file_name,".csv")) #read the file
+```
+
+Let’s model the sequence of time differences as independent and identically distributed random variables from an exponential distribution. More, precisely, let $Y_{1}$, $Y_{2}$, . . . , $Y_{n+1}$ denote the sequence of arrival times in seconds. Construct a new sequence of random variables $X_{1}$, . . . , $X_{n}$ where $X_{i}$ = $Y_{i+1} − Y{i}$for each i = 1, . . . , n. Model the sequence of differences in arrival times $X_{1}$, . . . , $X_{n}$ as independent and identically distributed exponential random variables.
+
+```{r,tidy=TRUE}
+# construct sequence of random variables X
+birds_data_EMATM0061 <- birds_data_EMATM0061 %>% 
+  mutate(X = lead(Time)-Time)
+```
+
+**Q: (e) Compute and display the maximum likelihood estimate of the rate parameter $\hat{λ}_{MLE}$. **
+
+```{r}
+X <- birds_data_EMATM0061 %>% pull(X)
+lambda_MLE<-1/mean(X,na.rm = 1)
+lambda_MLE
+```
+**A: $\hat{λ}_{MLE}$ is equal to 0.00498 **
+
+**Q: (f) Can you give a confidence interval for λ0 with a confidence level of 95%?**\
+
+First, we have to check weather or not data is Gaussian distribution
+```{r,message=FALSE,warning=FALSE,fig.align='center'}
+ggplot(data =birds_data_EMATM0061, aes(x=X))+geom_density()+theme_bw()+xlab("Time difference")
+```
+```{r,message=FALSE,warning=FALSE,fig.align='center'}
+ggplot(data = birds_data_EMATM0061, aes(sample=X))+theme_bw()+stat_qq()+stat_qq_line(color="blue")
+```
+Due to the data has heavy tail from the kernel density plot and is not linear from the QQ-plot. So, we can imply that the data is not a Gaussian distribution. Additionally, we want to find confidence interval of $\lambda_{0}$ which can be computed by $\frac{1}{\overline{X}}$ so we will compute a confidence interval by using bootstrap method.
+
+```{r}
+library(boot)
+set.seed(0)
+alpha <- 0.05 # 95% confident interval
+
+#define a function which computes the lambda
+compute_lambda <- function(df,indicies,col_name){
+  sub_sample<- df %>% slice(indicies) %>% 
+    pull(all_of(col_name)) # extract subsample
+  return(1/mean(sub_sample,na.rm=1))}
+
+# use the boot function to generate the bootstrap statistics
+result <- boot(data=birds_data_EMATM0061, statistic = compute_lambda, col_name = "X", R=10000)
+
+# compute the 95% confidence interval
+boot.ci(boot.out = result, type = "basic",conf=1-alpha)
+```
+**A: the 95% confident interval for $\lambda_{0}$ is (0.0049,0.0051 )**
